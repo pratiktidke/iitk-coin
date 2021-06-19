@@ -11,15 +11,11 @@ import (
 )
 
 // var channel chan int
-var dbase *sql.DB
 
-func init() {
-	// channel = make(chan int, 1)
-	// channel <- (1)
-	dbase, _ = sql.Open("sqlite3", "./userWallet.db")
-	dbase.Exec("cache=shared;")
-	dbase.Exec("PRAGMA read_uncommitted = true")
-}
+// func init() {
+// 	channel = make(chan int, 1)
+// 	channel <- (1)
+// }
 
 func accountExists(tx *sql.DB, roll_no string) (int, bool, error) {
 	rows, err := tx.Query("SELECT coins FROM wallet WHERE rollno = ?", roll_no)
@@ -48,9 +44,9 @@ func awardCoinsFunc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//dbase, _ := sql.Open("sqlite3", "./userWallet.db")
-	// dbase.Exec("cache=shared;")
-	// dbase.Exec("PRAGMA read_uncommitted = true")
+	dbase, _ := sql.Open("sqlite3", "./userWallet.db")
+	dbase.Exec("cache=shared;")
+	dbase.Exec("PRAGMA read_uncommitted = true")
 	// for closing database after all the code in AwardCoins func is executed
 
 	_, accExists, err := accountExists(dbase, r.FormValue("roll-no"))
@@ -87,7 +83,7 @@ func awardCoinsFunc(w http.ResponseWriter, r *http.Request) {
 
 func viewBalanceFunc(w http.ResponseWriter, r *http.Request) {
 	//<-channel
-	//dbase, _ := sql.Open("sqlite3", "./userWallet.db")
+	dbase, _ := sql.Open("sqlite3", "./userWallet.db")
 	// dbase.Exec("cache=shared;")
 	// dbase.Exec("PRAGMA read_uncommitted = true")
 
@@ -116,12 +112,12 @@ func viewBalanceFunc(w http.ResponseWriter, r *http.Request) {
 
 func transactionFunc(w http.ResponseWriter, r *http.Request) {
 	//<-channel
-	//dbase, err := sql.Open("sqlite3", "./userWallet.db")
-	// if err != nil {
-	// 	fmt.Println("This is the error : 1")
-	// 	fmt.Println(err)
-	// 	return
-	// }
+	dbase, err := sql.Open("sqlite3", "./userWallet.db")
+	if err != nil {
+		fmt.Println("This is the error : 1")
+		fmt.Println(err)
+		return
+	}
 	dbase.Exec("cache=private;")
 	dbase.Exec("PRAGMA read_uncommitted = true")
 
@@ -207,12 +203,12 @@ func transactionFunc(w http.ResponseWriter, r *http.Request) {
 }
 func main() {
 	//creating a database if not exist
-	// database, err := sql.Open("sqlite3", "./userWallet.db")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-	database := dbase
+	database, err := sql.Open("sqlite3", "./userWallet.db")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	//creating a table if not exists
 	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, rollno TEXT, coins INTEGER)")
 	statement.Exec()
@@ -221,7 +217,7 @@ func main() {
 	// 	fmt.Println(err)
 	// }
 	// stmt.Exec()
-	//database.Exec("PRAGMA journal_mode=DELETE;")
+	database.Exec("PRAGMA journal_mode=DELETE;")
 	//database.Exec("txlock=immediate;")
 	fmt.Println("listening to the port 3000...")
 
