@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// var channel chan int
+var channel chan int
 
-// func init() {
-// 	channel = make(chan int, 1)
-// 	channel <- (1)
-// }
+func init() {
+	channel = make(chan int, 1)
+	channel <- (1)
+}
 
+// function to check existence of required row in database
 func accountExists(tx *sql.DB, roll_no string) (int, bool, error) {
 	rows, err := tx.Query("SELECT coins FROM wallet WHERE rollno = ?", roll_no)
 	if err != nil {
@@ -36,7 +36,7 @@ func accountExists(tx *sql.DB, roll_no string) (int, bool, error) {
 	}
 }
 func awardCoinsFunc(w http.ResponseWriter, r *http.Request) {
-	//<-channel
+
 	// validating request method
 	if r.Method != "POST" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -45,40 +45,45 @@ func awardCoinsFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dbase, _ := sql.Open("sqlite3", "./userWallet.db")
-	dbase.Exec("cache=shared;")
-	dbase.Exec("PRAGMA read_uncommitted = true")
-	// for closing database after all the code in AwardCoins func is executed
+	// dbase.Exec("cache=private;")
+	// dbase.Exec("PRAGMA read_uncommitted = false")
 
-	_, accExists, err := accountExists(dbase, r.FormValue("roll-no"))
+	// data from client
+	user := r.FormValue("roll-no")
+	Amount, _ := strconv.Atoi((r.FormValue("amount")))
+
+	_, accExists, err := accountExists(dbase, user)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	// creating new account if not exists
 	if !accExists {
 		dbase.Exec("INSERT INTO wallet (rollno, coins) VALUES(?,?)", r.FormValue("roll-no"), 0)
 	}
 
-	tx, _ := dbase.Begin()
-	Amount, _ := strconv.Atoi((r.FormValue("amount")))
-	res, _ := tx.Exec("UPDATE wallet SET coins = coins + ? WHERE rollno = ?", Amount, r.FormValue("roll-no"))
+	//taking out value from channel to lock other concurrent transaction
+	<-channel
+	tx, _ := dbase.Begin() // transaction begins
 
-	time.Sleep(10 * (time.Second))
-
+	res, err := tx.Exec("UPDATE wallet SET coins = coins + ? WHERE rollno = ?", Amount, r.FormValue("roll-no"))
+	if err != nil {
+		fmt.Println(err)
+		tx.Rollback()
+		return
+	}
 	affectedRows, _ := res.RowsAffected()
 	if affectedRows != 1 {
 		tx.Rollback()
 		return
 	}
-	// if accExists {
-	// 	addedCoins, _ := strconv.Atoi(r.FormValue("coins"))
-	// 	updatedCoins := coins + addedCoins
-	// 	tx.Exec("UPDATE wallet SET coins=? WHERE rollno = ?", updatedCoins, r.FormValue("roll-no"))
-	// } else {
-	// 	coinsToAward, _ := strconv.Atoi(r.FormValue("coins"))
-	// 	tx.Exec("INSERT INTO wallet (rollno, coins) VALUES(?,?)", r.FormValue("roll-no"), coinsToAward)
-	// }
-	tx.Commit()
-	//channel <- (1)
+
+	//time.Sleep(10 * (time.Second))
+
+	tx.Commit() //transaction closed
+
+	//unlocking other concurrent transaction
+	channel <- (1)
 }
 
 func viewBalanceFunc(w http.ResponseWriter, r *http.Request) {
@@ -107,20 +112,20 @@ func viewBalanceFunc(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Write([]byte("User not registered"))
 	}
-	//channel <- (1)
+
 }
 
 func transactionFunc(w http.ResponseWriter, r *http.Request) {
-	//<-channel
+
 	dbase, err := sql.Open("sqlite3", "./userWallet.db")
 	if err != nil {
-		fmt.Println("This is the error : 1")
 		fmt.Println(err)
 		return
 	}
-	dbase.Exec("cache=private;")
-	dbase.Exec("PRAGMA read_uncommitted = true")
+	// dbase.Exec("cache=private;")
+	// dbase.Exec("PRAGMA read_uncommitted = false")
 
+	//data from client
 	user1, user2 := r.FormValue("user1"), r.FormValue("user2")
 	amount, err := strconv.Atoi(r.FormValue("amount"))
 	if err != nil {
@@ -128,6 +133,7 @@ func transactionFunc(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
+	// checking if database row exists for user1
 	_, user1accExists, err := accountExists(dbase, user1)
 	if err != nil {
 		fmt.Println("this one")
@@ -137,7 +143,7 @@ func transactionFunc(w http.ResponseWriter, r *http.Request) {
 	if !user1accExists {
 		dbase.Exec("INSERT INTO wallet (rollno, coins) VALUES (?,?)", user1, 0)
 	}
-
+	// checking if database row exists for user2
 	_, user2accExists, err := accountExists(dbase, user2)
 	if err != nil {
 		fmt.Println("this one")
@@ -148,14 +154,18 @@ func transactionFunc(w http.ResponseWriter, r *http.Request) {
 		dbase.Exec("INSERT INTO wallet (rollno, coins) VALUES (?,?)", user2, 0)
 	}
 
-	tx, err := dbase.Begin()
+	//taking out value from channel to lock other concurrent transaction
+	<-channel
+	tx, err := dbase.Begin() //transaction begins
 	if err != nil {
 		fmt.Println("This is the error : 3")
 		fmt.Println(err)
 		tx.Rollback()
 		return
 	}
-	time.Sleep(1 * time.Second)
+
+	//time.Sleep(1 * time.Second)
+
 	res, err := tx.Exec("UPDATE wallet SET coins = coins - ? WHERE rollno=? AND coins - ? >= 0 ", amount, user1, amount)
 	if err != nil {
 		fmt.Println("This is the error : 4")
@@ -198,9 +208,12 @@ func transactionFunc(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-	tx.Commit()
-	//channel <- (1)
+	tx.Commit() //transaction closed
+
+	//unlocking other concurrent transaction
+	channel <- (1)
 }
+
 func main() {
 	//creating a database if not exist
 	database, err := sql.Open("sqlite3", "./userWallet.db")
@@ -212,12 +225,8 @@ func main() {
 	//creating a table if not exists
 	statement, _ := database.Prepare("CREATE TABLE IF NOT EXISTS wallet (id INTEGER PRIMARY KEY, rollno TEXT, coins INTEGER)")
 	statement.Exec()
-	// stmt, err := database.Prepare("PRAGMA journal_mode=WAL;")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// stmt.Exec()
-	database.Exec("PRAGMA journal_mode=DELETE;")
+
+	// database.Exec("PRAGMA journal_mode=DELETE;")
 	//database.Exec("txlock=immediate;")
 	fmt.Println("listening to the port 3000...")
 
