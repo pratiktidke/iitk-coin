@@ -2,8 +2,8 @@ package main
 
 import (
 	"net/http"
-	"task4/authPackage"
-	transac "task4/transacPackage"
+	"github.com/pratiktidke/iitk-coin/authPackage"
+	transac "github.com/pratiktidke/iitk-coin/transacPackage"
 
 	_ "github.com/mattn/go-sqlite3"
 )
