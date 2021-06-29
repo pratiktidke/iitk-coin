@@ -21,8 +21,11 @@ var dbase *sql.DB
 
 func init() {
 	dbase, _ = sql.Open("sqlite3", "./database.db")
-	dbase.Exec("CREATE TABLE IF NOT EXISTS transacHistorys (id INTEGER PRIMARY KEY, from TEXT, to TEXT, amount REAL, description TEXT)")
-
+	_, err := dbase.Exec("CREATE TABLE IF NOT EXISTS transacHistorys (id INTEGER PRIMARY KEY, sender TEXT, receiver TEXT, amount REAL, description TEXT, date_and_time TEXT)")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }
 func FindUserFromToken(tknStr string) string {
 	claim := &authPackage.CustomClaims{}
@@ -73,6 +76,7 @@ func AwardCoins(w http.ResponseWriter, r *http.Request) {
 	amount := float64(A)
 	receiver := r.FormValue("awardTo")
 
+	fmt.Println(receiver)
 	if admin == "N" {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("User not logged in"))
@@ -99,25 +103,18 @@ func AwardCoins(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// res, err1 = tx.Exec("INSERT INTO  transacHistory (from, to, amount, description) VALUES (?,?,?,?)", admin, receiver, amount, "Awarded")
+		res, err1 = tx.Exec("INSERT INTO  transacHistorys (sender, receiver, amount, description, date_and_time) VALUES (?,?,?,?,datetime('now'))", admin, receiver, amount, "Awarded")
 
-		// affectedRows, err2 = res.RowsAffected()
+		affectedRows, err2 = res.RowsAffected()
 
-		// if affectedRows != 1 || err1 != nil || err2 != nil {
-		// 	fmt.Println("THIS ONE")
-		// 	tx.Rollback()
-		// 	return
-		// }
+		if affectedRows != 1 || err1 != nil || err2 != nil {
+			tx.Rollback()
+			channel <- (1)
+			return
+		}
 		tx.Commit()
 		channel <- (1)
-		// res, err1 = dbase.Exec("INSERT INTO  transacHistorys (from, to, amount, description) VALUES (?,?,?,?)", admin, receiver, amount, "Awarded")
 
-		// affectedRows, err2 = res.RowsAffected()
-
-		// if affectedRows != 1 || err1 != nil || err2 != nil {
-		// 	fmt.Println("THIS ONE")
-		// 	return
-		// }
 		return
 	}
 
@@ -169,25 +166,18 @@ func Transfer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// res, err1 = tx.Exec("INSERT INTO transacHistory (from, to, amount, description) VALUES(?,?,?,?", sender, receiver, amount, "Transfer")
+		res, err1 = tx.Exec("INSERT INTO transacHistorys (sender, receiver, amount, description,date_and_time) VALUES(?,?,?,?,datetime('now'))", sender, receiver, amount, "Transfer")
 
-		// affectedRows, err2 = res.RowsAffected()
+		affectedRows, err2 = res.RowsAffected()
 
-		// if affectedRows != 1 || err1 != nil || err2 != nil {
-		// 	w.Write([]byte("some other error"))
-		// 	tx.Rollback()
-		// 	return
-		// }
+		if affectedRows != 1 || err1 != nil || err2 != nil {
+			w.Write([]byte("some other error"))
+			tx.Rollback()
+			return
+		}
 		tx.Commit()
 		channel <- (1)
-		// 	res, err1 = dbase.Exec("INSERT INTO transacHistorys (from, to, amount, description) VALUES(?,?,?,?", sender, receiver, amount, "Transfer")
 
-		// 	affectedRows, err2 = res.RowsAffected()
-
-		// 	if affectedRows != 1 || err1 != nil || err2 != nil {
-		// 		w.Write([]byte("some other error"))
-		// 		return
-		//}
 	} else {
 		w.Write([]byte("Transaction not permitted"))
 		return

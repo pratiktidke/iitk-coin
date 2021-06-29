@@ -2,8 +2,8 @@ package main
 
 import (
 	"net/http"
-	"github.com/pratiktidke/iitk-coin/authPackage"
-	transac "github.com/pratiktidke/iitk-coin/transacPackage"
+	"task4/authPackage"
+	transac "task4/transacPackage"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -11,7 +11,6 @@ import (
 func main() {
 	http.HandleFunc("/signup", authPackage.SignUp)
 	http.HandleFunc("/signin", authPackage.SignIn)
-	http.HandleFunc("/secretpage", authPackage.Secretpage)
 	http.HandleFunc("/awardCoins", transac.AwardCoins)
 	http.HandleFunc("/transferCoins", transac.Transfer)
 	http.HandleFunc("/checkBalance", transac.CheckBalance)

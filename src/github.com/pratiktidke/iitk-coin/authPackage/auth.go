@@ -35,8 +35,10 @@ func init() {
 }
 
 func UserExists(roll_no string) bool {
-	rows, _ := dbase.Query("SELECT password FROM users WHERE roll_no = ?", roll_no)
-
+	rows, err := dbase.Query("SELECT password FROM users WHERE roll_no = ?", roll_no)
+	if err != nil {
+		fmt.Println(err)
+	}
 	affecRows := 0
 
 	for rows.Next() {
@@ -46,10 +48,6 @@ func UserExists(roll_no string) bool {
 	return affecRows != 0
 }
 func insertUserInDB(newUser *UserInfo) int {
-	// res, _ := dbase.Exec("SELECT password FROM users WHERE roll_no = ?", newUser.roll_no)
-
-	// affecRows, _ := res.RowsAffected()
-	// fmt.Println(affecRows)
 
 	userExists := UserExists(newUser.roll_no)
 
@@ -73,7 +71,7 @@ func validateUser(user *UserInfo) bool {
 		_ = rows.Scan(&expectedPassword)
 		cnt++
 	}
-	fmt.Println(cnt)
+
 	if cnt != 1 || (expectedPassword != user.password) {
 		return false
 	}
@@ -135,21 +133,4 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Now().Add(60 * time.Minute),
 		HttpOnly: true,
 	})
-}
-
-func Secretpage(w http.ResponseWriter, r *http.Request) {
-	c, err := r.Cookie("token")
-
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-	authenticated := AuthenticateUser(c)
-
-	if !authenticated {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("you need to login"))
-		return
-	}
-	w.Write([]byte("welcome to the secretpage"))
 }
