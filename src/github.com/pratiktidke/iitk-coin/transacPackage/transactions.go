@@ -95,6 +95,7 @@ func AwardCoins(w http.ResponseWriter, r *http.Request) {
 
 		if affectedRows != 1 || err1 != nil || err2 != nil {
 			tx.Rollback()
+			channel <- (1)
 			return
 		}
 
@@ -151,6 +152,7 @@ func Transfer(w http.ResponseWriter, r *http.Request) {
 		if affectedRows != 1 || err1 != nil || err2 != nil {
 			w.Write([]byte("insufficient balance or some other error"))
 			tx.Rollback()
+			channel <- (1)
 			return
 		}
 		if roleOfReceiver == roleOfSender {
@@ -163,6 +165,7 @@ func Transfer(w http.ResponseWriter, r *http.Request) {
 		if affectedRows != 1 || err1 != nil || err2 != nil {
 			w.Write([]byte("some other error"))
 			tx.Rollback()
+			channel <- (1)
 			return
 		}
 
