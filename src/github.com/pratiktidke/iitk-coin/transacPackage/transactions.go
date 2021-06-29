@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"task4/authPackage"
+	"github.com/pratiktidke/iitk-coin/authPackage"
 
 	"github.com/dgrijalva/jwt-go"
 )
