@@ -2,8 +2,8 @@ package main
 
 import (
 	"net/http"
-	"github.com/pratiktidke/iitk-coin/authPackage"
-	transac "github.com/pratiktidke/iitk-coin/transacPackage"
+	"task4/authPackage"
+	transac "task4/transacPackage"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -14,5 +14,7 @@ func main() {
 	http.HandleFunc("/awardCoins", transac.AwardCoins)
 	http.HandleFunc("/transferCoins", transac.Transfer)
 	http.HandleFunc("/checkBalance", transac.CheckBalance)
+	http.HandleFunc("/redeem", transac.Redeem)
+	http.HandleFunc("/handleRequest", transac.UpdateRequestStatus)
 	http.ListenAndServe(":3000", nil)
 }
