@@ -545,8 +545,8 @@ func MailOtp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	from := "pratiktidke12@gmail.com"
-	password := "prtidke123456789"
+	from := "<senderGmailAddress>"
+	password := "<password>"
 
 	to := []string{
 		email,
