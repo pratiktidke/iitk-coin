@@ -4,9 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
+	"net/mail"
+	"net/smtp"
 	"strconv"
 	"task4/authPackage"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -36,7 +40,13 @@ func init() {
 		fmt.Println(err)
 		return
 	}
-	_, err = dbase.Exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, roll_no TEXT, password TEXT, coins REAL, role TEXT, noOfEvents INTEGER)")
+	_, err = dbase.Exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, roll_no TEXT, password TEXT, coins REAL, role TEXT, noOfEvents INTEGER, email TEXT)")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	_, err = dbase.Exec("CREATE TABLE IF NOT EXISTS otpTbl (id INTEGER PRIMARY KEY, roll_no TEXT, OTP TEXT, expiry REAL)")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -108,8 +118,9 @@ func AwardCoins(w http.ResponseWriter, r *http.Request) {
 
 	amount := float64(A)
 	receiver := r.FormValue("awardTo")
+	fmt.Println(receiver, amount)
 
-	if !authPackage.UserExists(receiver) {
+	if !authPackage.UserExists(receiver, 1) {
 		w.Write([]byte("Receiver not registered"))
 		return
 	}
@@ -155,6 +166,7 @@ func AwardCoins(w http.ResponseWriter, r *http.Request) {
 }
 
 func Transfer(w http.ResponseWriter, r *http.Request) {
+
 	c, err := r.Cookie("token")
 	if err != nil {
 		w.Write([]byte("Please Login First "))
@@ -164,6 +176,10 @@ func Transfer(w http.ResponseWriter, r *http.Request) {
 	sender, err := FindUserFromTokenString(c.Value)
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if !OTPValide(sender, r.FormValue("otp")) {
+		w.Write([]byte("invalid or expired otp"))
 		return
 	}
 
@@ -176,7 +192,7 @@ func Transfer(w http.ResponseWriter, r *http.Request) {
 	amount := float64(A)
 	receiver := r.FormValue("sendTo")
 
-	if !authPackage.UserExists(receiver) {
+	if !authPackage.UserExists(receiver, 1) {
 		w.Write([]byte("Reciever not registered"))
 		return
 	}
@@ -299,8 +315,14 @@ func Redeem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := FindUserFromTokenString(c.Value)
+
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if !OTPValide(user, r.FormValue("otp")) {
+		w.Write([]byte("invalid or expired otp"))
 		return
 	}
 
@@ -429,4 +451,114 @@ func UpdateRequestStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	tx.Commit() //transaction ends
 	channel <- (1)
+}
+
+func MailAddressValide(email string) bool {
+	_, err := mail.ParseAddress(email)
+	return err == nil
+}
+
+func OTPValide(roll_no string, otp string) bool {
+
+	res, err := dbase.Exec("DELETE FROM otpTbl WHERE roll_no=? AND OTP=? AND expiry > julianday('now')", roll_no, otp)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	rowsaffected, err := res.RowsAffected()
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	if rowsaffected != 1 {
+		fmt.Println("otp expired")
+		return false
+	}
+	return true
+
+}
+
+// function to generate and save otp in database //
+func GenerateOTP(roll_no string) (string, error) {
+
+	// generating a random otp//
+	rand.Seed(time.Now().UnixNano())
+	otp := ""
+	for i := 0; i < 6; i++ {
+		otp = otp + strconv.Itoa(rand.Intn(9))
+	}
+
+	if authPackage.UserExists(roll_no, 2) {
+		_, err := dbase.Exec("UPDATE otpTbl SET OTP = ?, expiry = julianday('now', '+5 minutes') WHERE roll_no = ?", otp, roll_no)
+		if err != nil {
+			fmt.Println(err)
+			return "", err
+		}
+
+	} else {
+		_, err := dbase.Exec("INSERT INTO otpTbl (roll_no, OTP, expiry) VALUES(?,?,julianday('now', '+5 minutes'))", roll_no, otp)
+		if err != nil {
+			fmt.Println("this one is culprit")
+			return "", err
+		}
+	}
+	return otp, nil
+}
+
+func MailOtp(w http.ResponseWriter, r *http.Request) {
+
+	c, err := r.Cookie("token")
+	if err != nil {
+		w.Write([]byte("Please Login First "))
+		return
+	}
+
+	user, err := FindUserFromTokenString(c.Value)
+	if err != nil {
+		w.Write([]byte("Token Not Valid"))
+		return
+	}
+
+	rows, err := dbase.Query("SELECT email FROM users WHERE roll_no=?", user)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	var email string
+	for rows.Next() {
+		err := rows.Scan(&email)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
+	if !MailAddressValide(email) {
+		w.Write([]byte("Email invalid!"))
+		return
+	}
+
+	otp, err := GenerateOTP(user)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	from := "pratiktidke12@gmail.com"
+	password := "prtidke123456789"
+
+	to := []string{
+		email,
+	}
+	smtpHost := "smtp.gmail.com"
+	smtpPort := "587"
+	auth := smtp.PlainAuth("", from, password, smtpHost)
+	message := []byte(otp)
+	err = smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, message)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("OTP sent successfully")
 }

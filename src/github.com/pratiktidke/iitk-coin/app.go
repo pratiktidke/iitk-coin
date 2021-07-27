@@ -16,5 +16,6 @@ func main() {
 	http.HandleFunc("/checkBalance", transac.CheckBalance)
 	http.HandleFunc("/redeem", transac.Redeem)
 	http.HandleFunc("/handleRequest", transac.UpdateRequestStatus)
+	http.HandleFunc("/sendOTP", transac.MailOtp)
 	http.ListenAndServe(":3000", nil)
 }

@@ -17,6 +17,7 @@ type UserInfo struct {
 	roll_no  string
 	password string
 	role     string
+	email    string
 }
 type CustomClaims struct {
 	Roll_no string `json:"roll_no"`
@@ -31,30 +32,43 @@ func init() {
 		fmt.Println(err)
 	}
 
-	dbase.Exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, roll_no TEXT, password TEXT, coins REAL, role TEXT, noOfEvents INTEGER)")
-}
-
-func UserExists(roll_no string) bool {
-	rows, err := dbase.Query("SELECT password FROM users WHERE roll_no = ?", roll_no)
+	_, err = dbase.Exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, roll_no TEXT, password TEXT, coins REAL, role TEXT, noOfEvents INTEGER, email TEXT)")
 	if err != nil {
 		fmt.Println(err)
 	}
-	affecRows := 0
+	_, err = dbase.Exec("CREATE TABLE IF NOT EXISTS otpTbl (id INTEGER PRIMARY KEY, roll_no TEXT, OTP TEXT, expiry TEXT)")
+	if err != nil {
+		fmt.Println(err)
+	}
+}
 
+func UserExists(roll_no string, tableNo int) bool {
+	var rows *sql.Rows
+	var err error
+	if tableNo == 1 {
+		rows, err = dbase.Query("SELECT password FROM users WHERE roll_no = ?", roll_no)
+	} else {
+		rows, err = dbase.Query("SELECT * FROM otpTbl WHERE roll_no = ?", roll_no)
+	}
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	affecRows := 0
 	for rows.Next() {
 		affecRows++
 	}
-
 	return affecRows != 0
+
 }
 func insertUserInDB(newUser *UserInfo) int {
 
-	userExists := UserExists(newUser.roll_no)
+	userExists := UserExists(newUser.roll_no, 1)
 
 	if userExists {
 		return 0
 	} else {
-		dbase.Exec("INSERT INTO users (roll_no, password, coins, role, noOfEvents) VALUES (?,?,?,?,?)", newUser.roll_no, newUser.password, 0, newUser.role, 0)
+		dbase.Exec("INSERT INTO users (roll_no, password, coins, role, noOfEvents, email) VALUES (?,?,?,?,?,?)", newUser.roll_no, newUser.password, 0, newUser.role, 0, newUser.email)
 		return 1
 	}
 
@@ -105,7 +119,7 @@ func makeJwtToken(user UserInfo) string {
 
 func SignUp(w http.ResponseWriter, r *http.Request) {
 
-	newUser := UserInfo{r.FormValue("roll_no"), r.FormValue("password"), r.FormValue("role")}
+	newUser := UserInfo{r.FormValue("roll_no"), r.FormValue("password"), r.FormValue("role"), r.FormValue("email")}
 
 	inserted := insertUserInDB(&newUser)
 
@@ -118,7 +132,7 @@ func SignUp(w http.ResponseWriter, r *http.Request) {
 
 func SignIn(w http.ResponseWriter, r *http.Request) {
 
-	user := UserInfo{r.FormValue("roll_no"), r.FormValue("password"), r.FormValue("role")}
+	user := UserInfo{r.FormValue("roll_no"), r.FormValue("password"), r.FormValue("role"), r.FormValue("email")}
 
 	validated := validateUser(&user)
 
@@ -134,3 +148,35 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 	})
 }
+
+// func MailValide(email string) bool {
+// 	_, err := mail.ParseAddress(email)
+// 	return err == nil
+// }
+
+// func OTPValide(roll_no string, otp string, currentTime string) {
+
+// }
+// func MailOtp(w http.ResponseWriter,  r *http.Request) {
+
+// 	if !MailValide(email) {
+// 		w.Write([]byte("Email invalid!"))
+// 		return
+// 	}
+// 	from := "pratiktidke12@gmail.com"
+// 	password := "prtidke123456789"
+
+// 	to := []string{
+// 		"prtidke12@gmail.com",
+// 	}
+// 	smtpHost := "smtp.gmail.com"
+// 	smtpPort := "587"
+// 	auth := smtp.PlainAuth("", from, password, smtpHost)
+// 	message := []byte("This is the test mail")
+// 	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, message)
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		return
+// 	}
+// 	fmt.Println("Message sent successfully")
+// }
