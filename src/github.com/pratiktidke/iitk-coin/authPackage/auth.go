@@ -149,34 +149,4 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// func MailValide(email string) bool {
-// 	_, err := mail.ParseAddress(email)
-// 	return err == nil
-// }
 
-// func OTPValide(roll_no string, otp string, currentTime string) {
-
-// }
-// func MailOtp(w http.ResponseWriter,  r *http.Request) {
-
-// 	if !MailValide(email) {
-// 		w.Write([]byte("Email invalid!"))
-// 		return
-// 	}
-// 	from := "pratiktidke12@gmail.com"
-// 	password := "prtidke123456789"
-
-// 	to := []string{
-// 		"prtidke12@gmail.com",
-// 	}
-// 	smtpHost := "smtp.gmail.com"
-// 	smtpPort := "587"
-// 	auth := smtp.PlainAuth("", from, password, smtpHost)
-// 	message := []byte("This is the test mail")
-// 	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, message)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-// 	fmt.Println("Message sent successfully")
-// }
